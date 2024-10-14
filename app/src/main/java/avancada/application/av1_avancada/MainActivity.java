@@ -28,19 +28,14 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isPaused = false;
     private boolean isStarted = false;
+    private ImageView imageView;
+    private Bitmap bitmap, mutableBitmap;
+    private Canvas canvas;
     private Handler handler;
     private Runnable runnable;
-    private Button pauseButton;
-    private ImageView imageView;
-    private Bitmap mutableBitmap;
-    private Bitmap originalBitmap;
-    private Canvas canvas;
-    private Paint paint;
-    private EditText campoQuantidadeCarros;
-    // Lista para armazenar os pixels da linha de chegada (coordenadas x, y)
+    private List<Car> carList = new ArrayList<>(); // Lista de carros
+    private EditText campoQuantidadeCarros; // Campo para inserir quantidade de carros
     private final List<int[]> linhadeChegada = new ArrayList<>();
-
-    private final List<Car> carList = new ArrayList<>();
 
 
     @Override
@@ -55,21 +50,17 @@ public class MainActivity extends AppCompatActivity {
         });
 
 
-        // Conectar componentes ao layout
+        imageView = findViewById(R.id.myImageView);
         campoQuantidadeCarros = findViewById(R.id.campoQuantidadeCarros);
         Button botaoStart = findViewById(R.id.botaoStart);
 
-        // Carregar a imagem e modificar o pixel
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.pista);
-        
-        // Criar um objeto Paint para definir a cor e o estilo do desenho
-        paint = new Paint();
-        //paint.setColor(getRandomColor()); // Definir a cor para vermelho
+        // Carregar a imagem da pasta drawable como Bitmap
+        bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.pista);
+        mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        canvas = new Canvas(mutableBitmap);
 
-        // Desenhar um pixel na coordenada (250, 75)
-        //canvas.drawCircle(656, 198, 10, paint);
-
-        imageView = findViewById(R.id.myImageView);
+        // Preenche os pontos da linha de chegada
+        linhaChegada();
 
         // Configurar o comportamento do botão Start
         botaoStart.setOnClickListener(new View.OnClickListener() {
@@ -80,94 +71,12 @@ public class MainActivity extends AppCompatActivity {
                     // Verificar se o campo foi preenchido
                     String quantidadeTexto = campoQuantidadeCarros.getText().toString();
 
-                    int centroX = 656; // Posição inicial do pixel
-                    int centroY = 656;
-                    int raio = 458; // Raio do círculo
-                    double anguloIncremento = 5; // Pequeno incremento do ângulo para espaçamento menor (5 graus)
-
-
                     if (!quantidadeTexto.isEmpty()) {
-
                         isStarted = true;
-                        // Limpar a lista de carros e o canvas
-                        carList.clear();
-
-                        mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-                        // Criar um Canvas associado ao Bitmap mutável
-                        canvas = new Canvas(mutableBitmap);
-
-                        int width = mutableBitmap.getWidth();
-                        int height = mutableBitmap.getHeight();
-                        Log.d("BitmapSize", "Largura: " + width + " Altura: " + height);
-
                         int quantidadeCarros = Integer.parseInt(quantidadeTexto);
-
-                        // Adiciona os carros criados e os distribui em um formato circular (anti-horário com pouco espaçamento)
-                        double anguloAtual = 90; // Começa em 0 graus
-
-                        // Adiciona os carros criados
-                        for (int i = 0; i < quantidadeCarros; i++) {
-
-                            // Gerar uma cor aleatória para o carro
-                            int carColor = getRandomColor();
-
-                            // Calcular as coordenadas (x, y) com base no ângulo e no raio
-                            int x = (int) (centroX + raio * Math.cos(Math.toRadians(anguloAtual)));
-                            int y = (int) (centroY - raio * Math.sin(Math.toRadians(anguloAtual))); // Subtraindo para fazer anti-horário
-
-                            // Desenhar o círculo correspondente a esse carro
-                            //paint.setColor(getRandomColor()); // Definir uma cor aleatória para cada carro
-                            //canvas.drawCircle(x, y, 10, paint);
-
-                            Car car = new Car("Carro " + i, x, y, carColor);
-                            carList.add(car);
-
-                            // Desenhar o círculo correspondente a esse carro usando sua cor inicial
-                            Paint paint = new Paint();
-                            paint.setColor(carColor);
-                            canvas.drawCircle(x, y, 10, paint);
-
-                            // Desenhar o círculo correspondente a esse carro (pixel)
-                            //paint.setColor(getRandomColor()); // Definir uma cor aleatória para cada carro
-                            //canvas.drawCircle(x, y, 10, paint); // Desenhar um pequeno círculo (pixel) em (x, y)
-
-                            // Atualizar o ângulo para o próximo pixel, decrementando para mover no sentido anti-horário
-                            anguloAtual += anguloIncremento; // Diminui o ângulo para mover anti-horário
-                        }
-
                         if (quantidadeCarros > 0) {
-
-                            imageView.setImageBitmap(mutableBitmap);
-
-                            // Inicializando o Handler e o Runnable
-                            handler = new Handler();
-                            runnable = new Runnable() {
-
-                                @Override
-                                public void run() {
-                                    if (!isPaused) {
-
-                                        // Para cada carro na lista, tenta mover para um pixel branco
-                                        for (Car car : carList) {
-                                            car.moveCarToWhitePixel(mutableBitmap, canvas);
-                                            Log.d(car.getName(), "X: " + car.getX() + " y: " + car.getY());
-                                        }
-
-                                        // Redesenhar a tela com as novas posições dos carros
-                                        imageView.setImageBitmap(mutableBitmap);
-
-                                        // Sua tarefa em execução (simulada por um Toast aqui)
-                                        Toast.makeText(MainActivity.this, "Tarefa em execução", Toast.LENGTH_SHORT).show();
-
-                                        // Repetir a tarefa a cada 2 segundos
-                                        handler.postDelayed(this, 200);
-                                    }
-                                }
-                            };
-
-                            // Iniciar a tarefa
-                            handler.post(runnable);
-
+                            createCars(quantidadeCarros); // Criar os carros
+                            startMovement(); // Iniciar a movimentação
                             // Iniciar a próxima ação (por exemplo, iniciar uma corrida)
                             Toast.makeText(MainActivity.this, "Corrida iniciada com " + quantidadeCarros + " carros", Toast.LENGTH_SHORT).show();
                         } else {
@@ -185,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Inicializando o botão de pausa
-        pauseButton = findViewById(R.id.botaoPause);
+        Button pauseButton = findViewById(R.id.botaoPause);
 
         // Definir a lógica do botão de pausa
         pauseButton.setOnClickListener(new View.OnClickListener() {
@@ -234,6 +143,93 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    // Método para iniciar a movimentação dos carros
+    private void startMovement() {
+        handler = new Handler();
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isPaused) {
+                    moveCars(); // Mover os carros
+                    handler.postDelayed(this, 1); // Executar a cada 500ms
+                }
+            }
+        };
+        handler.post(runnable); // Iniciar a movimentação
+    }
+
+    // Método para mover todos os carros
+    private void moveCars() {
+        // Limpa o Bitmap antes de desenhar os carros
+        mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true); // Restaura a imagem da pista
+        canvas = new Canvas(mutableBitmap); // Cria um novo canvas
+
+        for (Car car : carList) {
+
+            // Verifica se o carro passou pela linha de chegada
+            if (verificarLinhaChegada(car)) {
+                car.setLaps(car.getLaps() + 1); // Incrementa o número de voltas do carro
+                Log.d("Voltas", car.getNome() + " completou " + car.getLaps() + " voltas.");
+
+                // Exibe uma mensagem ao jogador
+                Toast.makeText(MainActivity.this, "Carro de cor " + car.getNome() + " completou " + car.getLaps() + " voltas.", Toast.LENGTH_SHORT).show();
+            }
+            car.move(mutableBitmap, canvas); // Move cada carro
+            Log.d(String.valueOf(car.getNome()), "X:" + car.getX() + ", Y:" + car.getY()
+                    + ", Distancia: " + car.getDistance());
+            Log.d(String.valueOf(car.getNome()), "Map:" + car.getSensorData());
+            Log.d(String.valueOf(car.getNome()), "Panalidades:" + car.getPenalty());
+        }
+
+        // Redesenha a imagem na ImageView
+        imageView.setImageBitmap(mutableBitmap);
+    }
+
+    // Método para criar os carros 262, 134 -> 394, 522
+    private void createCars(int quantidadeCarros) {
+        carList.clear(); // Limpa a lista de carros
+
+        // Ângulo inicial em radianos (90 graus)
+        double angleIncrement = Math.toRadians(5); // Converte 5 graus para radianos
+        double radius = 458; // Raio do círculo
+        double centerX = 656; // Coordenada X do centro
+        double centerY = 656; // Coordenada Y do centro
+
+        // Define o ângulo inicial como 90 graus (ou pi/2 radianos)
+        double initialAngle = Math.toRadians(-90);
+
+        for (int i = 0; i < quantidadeCarros; i++) {
+            // Calcula o ângulo atual em radianos, subtraindo para movimento anti-horário
+            double angle = initialAngle - (i * angleIncrement);
+
+            // Calcula as coordenadas (x, y) do carro usando a fórmula de coordenadas polares
+            int x = (int) (centerX + radius * Math.cos(angle));
+            int y = (int) (centerY + radius * Math.sin(angle));
+
+            int color = getRandomColor();
+            carList.add(new Car("Carro " + i,x, y, color,21));
+        }
+    }
+
+    // Método para preencher os pontos da linha de chegada
+    private void linhaChegada() {
+        int chegadaX = 656;
+        for (int i = 134; i <= 262; i++) {
+            linhadeChegada.add(new int[]{chegadaX, i});
+        }
+    }
+
+    // Método para verificar se um carro passou pela linha de chegada
+    private boolean verificarLinhaChegada(Car car) {
+        for (int[] ponto : linhadeChegada) {
+            if (ponto[0] == car.getX() && ponto[1] == car.getY()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     // Método para gerar uma cor aleatória que não seja branca
     private int getRandomColor() {
         Random random = new Random();
@@ -242,41 +238,5 @@ public class MainActivity extends AppCompatActivity {
             color = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256));
         } while (color == Color.WHITE); // Garantir que a cor não seja branca
         return color;
-    }
-
-    // Método para verificar se o pixel é branco
-    private boolean isWhitePixel(int x, int y, Bitmap bitmap) {
-        int pixelColor = bitmap.getPixel(x, y);
-        return pixelColor == Color.WHITE;
-    }
-
-    // Método para restaurar a imagem original (remover os pontos desenhados)
-    private void restaurarImagemOriginal() {
-        if (originalBitmap != null) {
-            // Restaurar a imagem original sem os pontos
-            mutableBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
-            imageView.setImageBitmap(mutableBitmap);
-        }
-    }
-
-    // Método para verificar se um pixel é branco
-    private boolean isWhite(int pixelColor) {
-        // Verificar se o pixel é branco (cor RGB (255, 255, 255))
-        return Color.red(pixelColor) == 255 && Color.green(pixelColor) == 255 && Color.blue(pixelColor) == 255;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        handler.removeCallbacks(runnable);  // Remover callbacks quando a atividade for destruída
-    }
-
-
-    // Método para preencher os pontos da linha de chegada
-    private void linhaChegada() {
-        int chegadaX = 656;
-        for (int i = 134; i <= 262; i++) {
-            linhadeChegada.add(new int[]{chegadaX, i});
-        }
     }
 }
