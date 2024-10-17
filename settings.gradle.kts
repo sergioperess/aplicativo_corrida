@@ -8,6 +8,13 @@ pluginManagement {
             }
         }
         mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/seu-usuario/seu-repositorio")
+            credentials {
+                username = System.getenv("USERNAME")
+                password = System.getenv("API_TOKEN")
+            }
+        }
         gradlePluginPortal()
     }
 }
@@ -16,8 +23,16 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/sergioperess/aplicativo_corrida")
+            credentials{
+                username = System.getenv("USERNAME")
+                password = System.getenv("API_TOKEN")
+            }
+        }
     }
 }
 
 rootProject.name = "Av1_avancada"
 include(":app")
+include(":FuncLibrary")

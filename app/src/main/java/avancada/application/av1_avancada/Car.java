@@ -20,7 +20,8 @@ public class Car {
     private Map<Integer, Integer> sensor; // Mapa de sensores
     private int distance;
     private int laps; // Número de voltas
-
+    private boolean isMoving = false;
+    private Thread thread;
     private static final int TRACK_COLOR = Color.WHITE; // Cor da pista
 
     public Car(String nome, int x, int y, int color, int d) {
@@ -69,6 +70,34 @@ public class Car {
 
     public void setLaps(int laps) {
         this.laps = laps;
+    }
+
+    public Map<Integer, Integer> getSensor() {
+        return sensor;
+    }
+
+    public int getD() {
+        return d;
+    }
+
+    public int getDirection() {
+        return direction;
+    }
+
+    public void setPenalty(int penalty) {
+        this.penalty = penalty;
+    }
+
+    public void setDirection(int direction) {
+        this.direction = direction;
+    }
+
+    public void setSensor(Map<Integer, Integer> sensor) {
+        this.sensor = sensor;
+    }
+
+    public void setDistance(int distance) {
+        this.distance = distance;
     }
 
     public Map<Integer, Integer> getSensorData() {
