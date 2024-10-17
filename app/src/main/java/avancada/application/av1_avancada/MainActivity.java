@@ -4,7 +4,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -20,12 +19,21 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+
+import avancada.application.funclibrary.Test;
 
 public class MainActivity extends AppCompatActivity {
 
+    private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private boolean isPaused = false;
     private boolean isStarted = false;
     private ImageView imageView;
@@ -36,7 +44,6 @@ public class MainActivity extends AppCompatActivity {
     private List<Car> carList = new ArrayList<>(); // Lista de carros
     private EditText campoQuantidadeCarros; // Campo para inserir quantidade de carros
     private final List<int[]> linhadeChegada = new ArrayList<>();
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +68,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Preenche os pontos da linha de chegada
         linhaChegada();
+
+        Test tes1 = new Test();
+        tes1.test();
 
         // Configurar o comportamento do botão Start
         botaoStart.setOnClickListener(new View.OnClickListener() {
@@ -105,6 +115,10 @@ public class MainActivity extends AppCompatActivity {
                         isPaused = true;
                         pauseButton.setText("Retomar");
                         Toast.makeText(MainActivity.this, "Pausado", Toast.LENGTH_SHORT).show();
+
+                        // Salvar o estado de cada carro ao pausar
+                        saveCarState();
+
                     } else {
                         isPaused = false;
                         pauseButton.setText("Pausar");
@@ -130,6 +144,9 @@ public class MainActivity extends AppCompatActivity {
 
                     imageView.setImageResource(R.drawable.pista);
                     isStarted = false;
+
+                    saveCarState();
+
                     // Parar completamente a tarefa
                     if (handler != null && runnable != null) {
                         handler.removeCallbacks(runnable); // Remove a tarefa
@@ -138,6 +155,15 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     Toast.makeText(MainActivity.this, "Retomar atividade", Toast.LENGTH_SHORT).show();
                 }
+            }
+        });
+
+        Button restartButton = findViewById(R.id.botaoReiniciar); // Certifique-se que o botão está no layout
+
+        restartButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //loadCarStatesFromFirestore(); // Método para carregar os estados dos carros
             }
         });
     }
@@ -207,7 +233,8 @@ public class MainActivity extends AppCompatActivity {
             int y = (int) (centerY + radius * Math.sin(angle));
 
             int color = getRandomColor();
-            carList.add(new Car("Carro " + i,x, y, color,21));
+            Car car = new Car("Carro " + i,x, y, color,21);
+            carList.add(car);
         }
     }
 
@@ -228,6 +255,149 @@ public class MainActivity extends AppCompatActivity {
         }
         return false;
     }
+
+    private Map<String, Integer> convertSensorMap(Map<Integer, Integer> sensorMap) {
+        Map<String, Integer> stringMap = new HashMap<>();
+        for (Map.Entry<Integer, Integer> entry : sensorMap.entrySet()) {
+            stringMap.put(String.valueOf(entry.getKey()), entry.getValue());
+        }
+        return stringMap;
+    }
+
+
+    // Método para salvar o estado atualizado dos carros
+    private void saveCarState() {
+        db.collection("carros")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<String> currentCarNames = new ArrayList<>();
+                    for (Car car : carList) {
+                        currentCarNames.add(car.getNome());
+                    }
+
+                    // Apagar os carros que não estão mais na lista
+                    for (DocumentSnapshot snapshot : queryDocumentSnapshots.getDocuments()) {
+                        String carName = snapshot.getId();
+                        if (!currentCarNames.contains(carName)) {
+                            db.collection("carros").document(carName).delete();
+                        }
+                    }
+
+                    // Salvar o estado dos carros atuais
+                    for (Car car : carList) {
+                        Map<String, Object> carData = new HashMap<>();
+                        carData.put("nome", car.getNome());
+                        carData.put("x", car.getX());
+                        carData.put("y", car.getY());
+                        carData.put("color", car.getColor());
+                        carData.put("d", car.getD());
+                        carData.put("distance", car.getDistance());
+                        carData.put("direction", car.getDirection());
+                        carData.put("penalty", car.getPenalty());
+                        carData.put("laps", car.getLaps());
+                        carData.put("sensor", convertSensorMap(car.getSensor())); // O mapa de sensores
+
+                        // Salva no Firestore usando o nome do carro como o ID do documento
+                        db.collection("carros").document(car.getNome())
+                                .set(carData)
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d("Firestore", "Estado do carro salvo com sucesso!");
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.w("Firestore", "Erro ao salvar o estado do carro", e);
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> Log.w("Firestore", "Erro ao acessar dados antigos", e));
+    }
+
+
+    /*private void loadCarStatesFromFirestore() {
+
+        // Limpa a lista de carros antes de restaurar os estados
+        carList.clear();
+
+        // Aqui, assumimos que você tem uma coleção "cars" onde salvou o estado de cada carro
+        db.collection("carros").get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        if (!task.getResult().isEmpty()) {
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                // Obter os dados de cada carro
+                                String nome = document.getString("nome");
+                                int x = document.getLong("x").intValue();
+                                int y = document.getLong("y").intValue();
+                                int color = document.getLong("color").intValue();
+                                int d = document.getLong("d").intValue();
+                                int distance = document.getLong("distance").intValue();
+                                int direction = document.getLong("direction").intValue();
+                                int penalty = document.getLong("penalty").intValue();
+                                int laps = document.getLong("laps").intValue();
+
+                                // Converter o mapa de sensores salvo como String para Integer
+                                Map<String, Long> sensorMap = (Map<String, Long>) document.get("sensor");
+                                Map<Integer, Integer> sensor = new HashMap<>();
+                                for (Map.Entry<String, Long> entry : sensorMap.entrySet()) {
+                                    sensor.put(Integer.parseInt(entry.getKey()), entry.getValue().intValue());
+                                }
+
+                                // Criar o carro com os valores restaurados
+                                Car car = new Car(nome, x, y, color, d);
+                                car.setDistance(distance);
+                                car.setDirection(direction);
+                                car.setPenalty(penalty);
+                                car.setLaps(laps);
+                                car.setSensor(sensor);
+
+                                // Adicionar o carro restaurado na lista de carros da corrida
+                                addCarToRace(car);
+                            }
+
+                            // Reiniciar a corrida
+                            restartRace();
+                        }
+                        else {
+                            Toast.makeText(MainActivity.this, "Nenhum estado de corrida salvo encontrado.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Log.d("Firestore", "Erro ao carregar os estados: ", task.getException());
+                    }
+                });
+    }
+
+    private void addCarToRace(Car car) {
+        // Aqui você implementa a lógica de adicionar o carro na corrida,
+        // como por exemplo, adicionar ele no Canvas ou em uma lista de carros ativos.
+        carList.add(car);  // Supondo que você tem uma lista chamada carsList
+    }
+    private void restartRace() {
+        isPaused = false;
+        isStarted = true;
+
+        // Interrompe o handler atual para evitar execução duplicada
+        if (handler != null && runnable != null) {
+            handler.removeCallbacks(runnable);
+        }
+
+        // Redesenhar a imagem da pista antes de reiniciar a corrida
+        mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        canvas = new Canvas(mutableBitmap);
+
+        // Atualizar a visualização com os carros restaurados
+        moveCars(); // Mover os carros para os seus estados restaurados
+
+        handler = new Handler(); // Reiniciar o handler para controlar o movimento
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isPaused) {
+                    moveCars(); // Mover os carros
+                    handler.postDelayed(this, 1); // Executar a cada 1ms
+                }
+            }
+        };
+        handler.post(runnable);  // Iniciar a movimentação
+    }*/
 
 
     // Método para gerar uma cor aleatória que não seja branca
