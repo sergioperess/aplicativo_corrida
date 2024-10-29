@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -45,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText campoQuantidadeCarros; // Campo para inserir quantidade de carros
     private final List<int[]> linhadeChegada = new ArrayList<>();
 
+    private static final int TRACK_COLOR = Color.WHITE; // Cor da pista
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-
 
         imageView = findViewById(R.id.myImageView);
         campoQuantidadeCarros = findViewById(R.id.campoQuantidadeCarros);
@@ -68,9 +70,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Preenche os pontos da linha de chegada
         linhaChegada();
-
-        Test tes1 = new Test();
-        tes1.test();
 
         // Configurar o comportamento do botão Start
         botaoStart.setOnClickListener(new View.OnClickListener() {
@@ -87,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
                         if (quantidadeCarros > 0) {
                             createCars(quantidadeCarros); // Criar os carros
                             startMovement(); // Iniciar a movimentação
+
                             // Iniciar a próxima ação (por exemplo, iniciar uma corrida)
                             Toast.makeText(MainActivity.this, "Corrida iniciada com " + quantidadeCarros + " carros", Toast.LENGTH_SHORT).show();
                         } else {
@@ -116,12 +116,21 @@ public class MainActivity extends AppCompatActivity {
                         pauseButton.setText("Retomar");
                         Toast.makeText(MainActivity.this, "Pausado", Toast.LENGTH_SHORT).show();
 
+                        for (Car car : carList) {
+                            car.pause();
+                        }
+
                         // Salvar o estado de cada carro ao pausar
                         saveCarState();
 
                     } else {
                         isPaused = false;
                         pauseButton.setText("Pausar");
+
+                        for (Car car : carList) {
+                            car.resume();
+                        }
+
                         handler.post(runnable);  // Retomar a tarefa
                         Toast.makeText(MainActivity.this, "Retomado", Toast.LENGTH_SHORT).show();
                     }
@@ -152,6 +161,12 @@ public class MainActivity extends AppCompatActivity {
                         handler.removeCallbacks(runnable); // Remove a tarefa
                         Toast.makeText(MainActivity.this, "Tarefa finalizada", Toast.LENGTH_SHORT).show();
                     }
+
+                    // Parar cada thread de carro
+                    for (Car car : carList) {
+                        car.stopRunning(); // Para a execução do carro
+                    }
+
                 } else {
                     Toast.makeText(MainActivity.this, "Retomar atividade", Toast.LENGTH_SHORT).show();
                 }
@@ -168,7 +183,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     // Método para iniciar a movimentação dos carros
     private void startMovement() {
         handler = new Handler();
@@ -177,15 +191,33 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 if (!isPaused) {
                     moveCars(); // Mover os carros
-                    handler.postDelayed(this, 1); // Executar a cada 500ms
+                    handler.postDelayed(this, 20); // Executar a cada 500ms
                 }
             }
         };
+
+        // Iniciar a movimentação de cada carro em uma thread separada
+        for (int i = 0; i < carList.size(); i++) {
+            Car car = carList.get(i);
+            Thread carThread = new Thread(car); // Cria uma thread para cada carro
+
+            // Se o carro está na posição 0, define prioridade máxima
+            if (i == 0) {
+                carThread.setPriority(Thread.MAX_PRIORITY);
+            } else {
+                carThread.setPriority(Thread.NORM_PRIORITY); // Define prioridade normal para os demais
+            }
+
+            Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
+
+            carThread.start(); // Inicia a thread
+        }
+
         handler.post(runnable); // Iniciar a movimentação
     }
 
     // Método para mover todos os carros
-    private void moveCars() {
+    private synchronized void moveCars() {
         // Limpa o Bitmap antes de desenhar os carros
         mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true); // Restaura a imagem da pista
         canvas = new Canvas(mutableBitmap); // Cria um novo canvas
@@ -195,16 +227,32 @@ public class MainActivity extends AppCompatActivity {
             // Verifica se o carro passou pela linha de chegada
             if (verificarLinhaChegada(car)) {
                 car.setLaps(car.getLaps() + 1); // Incrementa o número de voltas do carro
-                Log.d("Voltas", car.getNome() + " completou " + car.getLaps() + " voltas.");
+                Log.d("Voltas", "Carro de cor " + car.getColor() + " completou " + car.getLaps() + " voltas.");
 
                 // Exibe uma mensagem ao jogador
-                Toast.makeText(MainActivity.this, "Carro de cor " + car.getNome() + " completou " + car.getLaps() + " voltas.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Carro de cor " + car.getColor() + " completou " + car.getLaps() + " voltas.", Toast.LENGTH_SHORT).show();
             }
-            car.move(mutableBitmap, canvas); // Move cada carro
-            Log.d(String.valueOf(car.getNome()), "X:" + car.getX() + ", Y:" + car.getY()
+
+            Paint paint = new Paint();
+            paint.setColor(TRACK_COLOR);
+            canvas.drawCircle(car.getX(), car.getY(), 10, paint); // Limpa a posição anterior
+
+            car.updateSensors(mutableBitmap); // Atualiza os sensores
+
+            // Verifica colisão
+            if (car.getX() < 0 || car.getX() >= mutableBitmap.getWidth() || car.getY() < 0 || car.getY() >= mutableBitmap.getHeight() ||
+                    mutableBitmap.getPixel(car.getX(), car.getY()) != TRACK_COLOR) {
+                car.setPenalty(car.getPenalty() + 1);
+            }
+
+            paint.setColor(car.getColor());
+            canvas.drawCircle(car.getX(), car.getY(), 10, paint); // Desenha o carro na nova posição
+
+            Log.d(String.valueOf(car.getColor()), "X:" + car.getX() + ", Y:" + car.getY()
                     + ", Distancia: " + car.getDistance());
-            Log.d(String.valueOf(car.getNome()), "Map:" + car.getSensorData());
-            Log.d(String.valueOf(car.getNome()), "Panalidades:" + car.getPenalty());
+            Log.d(String.valueOf(car.getColor()), "Map:" + car.getSensorData());
+            Log.d(String.valueOf(car.getColor()), "Panalidades:" + car.getPenalty());
+            // Log da prioridade do carro
         }
 
         // Redesenha a imagem na ImageView
@@ -233,8 +281,7 @@ public class MainActivity extends AppCompatActivity {
             int y = (int) (centerY + radius * Math.sin(angle));
 
             int color = getRandomColor();
-            Car car = new Car("Carro " + i,x, y, color,21);
-            carList.add(car);
+            carList.add(new Car("Carro " + i, x, y, color,21));
         }
     }
 
@@ -398,7 +445,6 @@ public class MainActivity extends AppCompatActivity {
         };
         handler.post(runnable);  // Iniciar a movimentação
     }*/
-
 
     // Método para gerar uma cor aleatória que não seja branca
     private int getRandomColor() {
