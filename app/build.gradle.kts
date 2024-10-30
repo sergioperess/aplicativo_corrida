@@ -34,7 +34,7 @@ android {
 
 dependencies {
 
-    implementation("avancada.application.av1_avancada:funcionalidades:v1")
+    implementation("avancada.application.av1_avancada:funcionalidades:v6")
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-firestore-ktx") // Firestore SDK com Kotlin Extensions
     implementation(libs.appcompat)

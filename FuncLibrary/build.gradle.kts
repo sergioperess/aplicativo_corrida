@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.androidLibrary)
     id("maven-publish")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -43,7 +44,7 @@ publishing {
         create<MavenPublication>("bar") {
             groupId = "avancada.application.av1_avancada"
             artifactId = "funcionalidades"
-            version = "v1"
+            version = "v6"
 
             // Adiciona o componente "release" do Android para ser publicado
             afterEvaluate {
@@ -66,7 +67,9 @@ publishing {
 }
 
 dependencies {
-    implementation("avancada.application.av1_avancada:funcionalidades:v1")
+    implementation("avancada.application.av1_avancada:funcionalidades:v2")
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-firestore-ktx") // Firestore SDK com Kotlin Extensions
     implementation(libs.appcompat)
     implementation(libs.material)
     testImplementation(libs.junit)

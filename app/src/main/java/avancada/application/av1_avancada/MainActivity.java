@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import avancada.application.funclibrary.FirestoreManager;
+
 public class MainActivity extends AppCompatActivity {
 
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -43,8 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private List<Car> carList = new ArrayList<>(); // Lista de carros
     private EditText campoQuantidadeCarros; // Campo para inserir quantidade de carros
     private final List<int[]> linhadeChegada = new ArrayList<>();
-
     private static final int TRACK_COLOR = Color.WHITE; // Cor da pista
+    FirestoreManager<Car> firestoreManager = new FirestoreManager<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -360,15 +362,17 @@ public class MainActivity extends AppCompatActivity {
                         carData.put("laps", car.getLaps());
                         carData.put("sensor", convertSensorMap(car.getSensor())); // O mapa de sensores
 
+                        firestoreManager.save("carros", car.getNome(), carData);
+
                         // Salva no Firestore usando o nome do carro como o ID do documento
-                        db.collection("carros").document(car.getNome())
+                        /*db.collection("carros").document(car.getNome())
                                 .set(carData)
                                 .addOnSuccessListener(aVoid -> {
                                     Log.d("Firestore", "Estado do carro salvo com sucesso!");
                                 })
                                 .addOnFailureListener(e -> {
                                     Log.w("Firestore", "Erro ao salvar o estado do carro", e);
-                                });
+                                });*/
                     }
                 })
                 .addOnFailureListener(e -> Log.w("Firestore", "Erro ao acessar dados antigos", e));
@@ -379,9 +383,58 @@ public class MainActivity extends AppCompatActivity {
 
         // Limpa a lista de carros antes de restaurar os estados
         carList.clear();
+        firestoreManager.fetchCollection("carros", new FirestoreManager.FirestoreCallback<List<Map<String, Object>>>(){
+            @Override
+            public void onSuccess(List<Map<String, Object>> items) {
+                if (items.isEmpty()) {
+                    Log.d("Firestore", "Nenhum carro encontrado.");
+                } else {
+                    Log.d("Firestore", "Número de carros encontrados: " + items.size());
+                    // Aqui você pode lidar com a lista de carros retornada
+                    for (Map<String, Object> document : items) {
+                        // Obter os dados de cada carro
+                        String nome = (String) document.get("nome");
+                        int x = ((Number) document.get("x")).intValue();
+                        int y = ((Number) document.get("y")).intValue();
+                        int color = ((Number) document.get("color")).intValue();
+                        int d = ((Number) document.get("d")).intValue();
+                        int distance = ((Number) document.get("distance")).intValue();
+                        int direction = ((Number) document.get("direction")).intValue();
+                        int penalty = ((Number) document.get("penalty")).intValue();
+                        int laps = ((Number) document.get("laps")).intValue();
+
+                        // Converter o mapa de sensores salvo como String para Integer
+                        Map<String, Long> sensorMap = (Map<String, Long>) document.get("sensor");
+                        Map<Integer, Integer> sensor = new HashMap<>();
+                        for (Map.Entry<String, Long> entry : sensorMap.entrySet()) {
+                            sensor.put(Integer.parseInt(entry.getKey()), entry.getValue().intValue());
+                        }
+
+                        // Criar o carro com os valores restaurados
+                        Car car = new Car(nome, x, y, color, d);
+                        car.setDistance(distance);
+                        car.setDirection(direction);
+                        car.setPenalty(penalty);
+                        car.setLaps(laps);
+                        car.setSensor(sensor);
+
+                        // Adicionar o carro restaurado na lista de carros da corrida
+                        addCarToRace(car);
+                    }
+                }
+                // Reiniciar a corrida
+                restartRace();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                // Lidar com falhas
+                e.printStackTrace();
+            }
+        });
 
         // Aqui, assumimos que você tem uma coleção "cars" onde salvou o estado de cada carro
-        db.collection("carros").get()
+        /*db.collection("carros").get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         if (!task.getResult().isEmpty()) {
@@ -425,14 +478,13 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         Log.d("Firestore", "Erro ao carregar os estados: ", task.getException());
                     }
-                });
+                });*/
     }
 
     private void addCarToRace(Car car) {
-        // Aqui você implementa a lógica de adicionar o carro na corrida,
-        // como por exemplo, adicionar ele no Canvas ou em uma lista de carros ativos.
         carList.add(car);  // Supondo que você tem uma lista chamada carsList
     }
+
     private void restartRace() {
         isPaused = false;
         isStarted = true;

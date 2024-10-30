@@ -1,13 +1,13 @@
 package avancada.application.av1_avancada;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
+
+import avancada.application.funclibrary.DistanceCalculator;
 
 public class Car implements Runnable{
     private String nome;
@@ -155,11 +155,13 @@ public class Car implements Runnable{
                     euclideanDistance = d;
                     break;
                 } else if (mutableBitmap.getPixel(xTemp, yTemp) != TRACK_COLOR) {
-                    euclideanDistance = Math.sqrt(Math.pow(xTemp - x, 2) + Math.pow(yTemp - y, 2));
+                    //euclideanDistance = Math.sqrt(Math.pow(xTemp - x, 2) + Math.pow(yTemp - y, 2));
+                    euclideanDistance = DistanceCalculator.calculateEuclideanDistance(x, y, xTemp, yTemp);
                     break;
                 }
 
-                euclideanDistance = Math.sqrt(Math.pow(xTemp - x, 2) + Math.pow(yTemp - y, 2));
+                //euclideanDistance = Math.sqrt(Math.pow(xTemp - x, 2) + Math.pow(yTemp - y, 2));
+                euclideanDistance = DistanceCalculator.calculateEuclideanDistance(x, y, xTemp, yTemp);
             }
 
             sensor.put(dir, (int) Math.min(d, euclideanDistance)); // Atualiza o sensor
