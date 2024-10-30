@@ -108,6 +108,10 @@ public class Car implements Runnable{
         return sensor;
     }
 
+    public boolean isFirstMove() {
+        return firstMove;
+    }
+
     // Método para atualizar os sensores a cada movimento
     public synchronized void updateSensors(Bitmap mutableBitmap) {
         for (int dir = 0; dir < 8; dir++) {
@@ -311,5 +315,4 @@ public class Car implements Runnable{
     public void resume() {
         isPaused = false; // Retoma o movimento
     }
-
 }

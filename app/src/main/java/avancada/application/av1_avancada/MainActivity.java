@@ -30,8 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import avancada.application.funclibrary.Test;
-
 public class MainActivity extends AppCompatActivity {
 
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -85,6 +83,24 @@ public class MainActivity extends AppCompatActivity {
                         int quantidadeCarros = Integer.parseInt(quantidadeTexto);
                         if (quantidadeCarros > 0) {
                             createCars(quantidadeCarros); // Criar os carros
+
+                            // Iniciar a movimentação de cada carro em uma thread separada
+                            for (int i = 0; i < carList.size(); i++) {
+                                Car car = carList.get(i);
+                                Thread carThread = new Thread(car); // Cria uma thread para cada carro
+
+                                // Se o carro está na posição 0, define prioridade máxima
+                                if (i == 0) {
+                                    carThread.setPriority(Thread.MAX_PRIORITY);
+                                } else {
+                                    carThread.setPriority(Thread.NORM_PRIORITY); // Define prioridade normal para os demais
+                                }
+
+                                Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
+
+                                carThread.start(); // Inicia a thread
+                            }
+
                             startMovement(); // Iniciar a movimentação
 
                             // Iniciar a próxima ação (por exemplo, iniciar uma corrida)
@@ -178,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
         restartButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //loadCarStatesFromFirestore(); // Método para carregar os estados dos carros
+                loadCarStatesFromFirestore(); // Método para carregar os estados dos carros
             }
         });
     }
@@ -197,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
         };
 
         // Iniciar a movimentação de cada carro em uma thread separada
-        for (int i = 0; i < carList.size(); i++) {
+        /*for (int i = 0; i < carList.size(); i++) {
             Car car = carList.get(i);
             Thread carThread = new Thread(car); // Cria uma thread para cada carro
 
@@ -211,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
 
             carThread.start(); // Inicia a thread
-        }
+        }*/
 
         handler.post(runnable); // Iniciar a movimentação
     }
@@ -359,7 +375,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    /*private void loadCarStatesFromFirestore() {
+    private void loadCarStatesFromFirestore() {
 
         // Limpa a lista de carros antes de restaurar os estados
         carList.clear();
@@ -433,18 +449,25 @@ public class MainActivity extends AppCompatActivity {
         // Atualizar a visualização com os carros restaurados
         moveCars(); // Mover os carros para os seus estados restaurados
 
-        handler = new Handler(); // Reiniciar o handler para controlar o movimento
-        runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (!isPaused) {
-                    moveCars(); // Mover os carros
-                    handler.postDelayed(this, 1); // Executar a cada 1ms
-                }
+        // Iniciar a movimentação de cada carro em uma thread separada
+        for (int i = 0; i < carList.size(); i++) {
+            Car car = carList.get(i);
+            Thread carThread = new Thread(car); // Cria uma thread para cada carro
+
+            // Se o carro está na posição 0, define prioridade máxima
+            if (i == 0) {
+                carThread.setPriority(Thread.MAX_PRIORITY);
+            } else {
+                carThread.setPriority(Thread.NORM_PRIORITY); // Define prioridade normal para os demais
             }
-        };
-        handler.post(runnable);  // Iniciar a movimentação
-    }*/
+
+            Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
+
+            carThread.start(); // Inicia a thread
+        }
+
+        startMovement();
+    }
 
     // Método para gerar uma cor aleatória que não seja branca
     private int getRandomColor() {
