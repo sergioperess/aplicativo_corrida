@@ -24,7 +24,6 @@ public class Car implements Runnable{
     private static final int TRACK_COLOR = Color.WHITE; // Cor da pista
     // Semáforo para controlar o acesso à região crítica
     private static final Semaphore semaphore = new Semaphore(1);
-
     private volatile boolean isRunning = true; // Variável para controlar a execução
     private volatile boolean isPaused = false; // Variável para controlar a execução
 
@@ -285,6 +284,11 @@ public class Car implements Runnable{
 
                     // Continua se movendo enquanto estiver na região crítica
                     while (isInCriticalRegion()) {
+
+                        while (isPaused) {
+                            Thread.sleep(50); // Atraso enquanto está pausado
+                        }
+
                         move(); // Move o carro
                         Thread.sleep(20); // Atraso para simular a movimentação
                     }
