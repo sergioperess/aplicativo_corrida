@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import avancada.application.funclibrary.FirestoreManager;
 
@@ -47,6 +49,13 @@ public class MainActivity extends AppCompatActivity {
     private final List<int[]> linhadeChegada = new ArrayList<>();
     private static final int TRACK_COLOR = Color.WHITE; // Cor da pista
     FirestoreManager<Car> firestoreManager = new FirestoreManager<>();
+
+    private static ExecutorService executor;
+
+    static {
+        int numThreads = Runtime.getRuntime().availableProcessors(); // Obtém o número de núcleos disponíveis
+        executor = Executors.newFixedThreadPool(1); // Cria um pool de threads com número de threads igual ao número de núcleos
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,7 +109,9 @@ public class MainActivity extends AppCompatActivity {
 
                                 Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
 
-                                carThread.start(); // Inicia a thread
+                                executor.submit(car);
+
+                                //carThread.start(); // Inicia a thread
                             }
 
                             startMovement(); // Iniciar a movimentação
@@ -185,6 +196,8 @@ public class MainActivity extends AppCompatActivity {
                         car.stopRunning(); // Para a execução do carro
                     }
 
+                    executor.shutdownNow(); // Encerra as threads ativa
+
                 } else {
                     Toast.makeText(MainActivity.this, "Retomar atividade", Toast.LENGTH_SHORT).show();
                 }
@@ -245,6 +258,8 @@ public class MainActivity extends AppCompatActivity {
             // Verifica se o carro passou pela linha de chegada
             if (verificarLinhaChegada(car)) {
                 car.setLaps(car.getLaps() + 1); // Incrementa o número de voltas do carro
+                car.setStartTime(0);
+                car.setDist_porcent(0);
                 Log.d("Voltas", "Carro de cor " + car.getColor() + " completou " + car.getLaps() + " voltas.");
 
                 // Exibe uma mensagem ao jogador
@@ -514,6 +529,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
+
+            //executor.submit(car);
 
             carThread.start(); // Inicia a thread
         }

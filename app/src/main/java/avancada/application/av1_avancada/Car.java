@@ -2,9 +2,12 @@ package avancada.application.av1_avancada;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.util.Log;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
 import avancada.application.funclibrary.DistanceCalculator;
@@ -27,6 +30,14 @@ public class Car implements Runnable{
     private volatile boolean isRunning = true; // Variável para controlar a execução
     private volatile boolean isPaused = false; // Variável para controlar a execução
 
+    // Controle de tempo e atraso
+    private long startTime; // Tempo inicial do movimento
+    private long deadline; // Tempo limite para completar o trajeto
+
+    private int dist_porcent;
+
+
+
     public Car(String nome, int x, int y, int color, int d) {
         this.nome = nome;
         this.x = x;
@@ -42,6 +53,18 @@ public class Car implements Runnable{
         for (int i = 0; i < 8; i++) {
             sensor.put(i, d);
         }
+
+        this.deadline = 6000; // Define o tempo limite
+        this.startTime = System.currentTimeMillis(); // Marca o tempo inicial
+        this.dist_porcent = 0;
+    }
+
+    public int getDist_porcent() {
+        return dist_porcent;
+    }
+
+    public void setDist_porcent(int dist_porcent) {
+        this.dist_porcent = dist_porcent;
     }
 
     public String getNome() {
@@ -109,6 +132,62 @@ public class Car implements Runnable{
 
     public boolean isFirstMove() {
         return firstMove;
+    }
+
+    public long getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public void updateDistance() {
+        this.dist_porcent = (distance / 2885) * 100; // Progresso em %
+    }
+
+    // Método para ajustar a prioridade da thread do carro
+    private void adjustThreadPriority(Thread carThread) {
+        if (isLate()) {
+            carThread.setPriority(Thread.MAX_PRIORITY); // Aumenta a prioridade
+        } else {
+            carThread.setPriority(Thread.NORM_PRIORITY); // Define a prioridade normal
+        }
+    }
+
+    public boolean isScalable() {
+        long elapsedTime = System.currentTimeMillis() - startTime; // Tempo decorrido
+        double expectedDistance = (double) elapsedTime / deadline * 100; // Progresso esperado (%)
+
+        // Se o progresso atual estiver abaixo do esperado, verifica escalonabilidade
+        if (dist_porcent < expectedDistance) {
+            double delayPercentage = expectedDistance - distance; // Quanto está atrasado (%)
+
+            // Define se o atraso é aceitável para escalonamento (exemplo: 10% de tolerância)
+            return delayPercentage <= 10.0;
+        }
+
+        // Caso contrário, o carro não está atrasado e é escalonável
+        return true;
+    }
+
+    // Método para verificar se o carro está atrasado
+    private boolean isLate() {
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        double expectedDistance = (double) elapsedTime / deadline * 100; // % do percurso esperado
+        return dist_porcent < expectedDistance;
+    }
+
+    // Método para ajustar a velocidade em caso de atraso
+    private int getAdjustedDelay() {
+        if (isLate()) {
+            // Log para verificar o valor do delay
+            Log.d("getAdjustedDelay():", " Delay is 5");
+            return 5; // Reduz o atraso aumentando a prioridade (menor delay)
+        } else {
+            Log.d("getAdjustedDelay():", " Delay is 10");
+            return 10; // Delay padrão
+        }
     }
 
     // Método para atualizar os sensores a cada movimento
@@ -257,11 +336,12 @@ public class Car implements Runnable{
 
         // Incrementa a distância e redesenha o carro
         distance++;
+        updateDistance();
     }
 
     // Método para verificar se o carro está na região crítica
     private boolean isInCriticalRegion() {
-        return x >= 700 && x <= 1150 && y >= 150 && y <= 400;
+        return x >= 800 && x <= 1150 && y >= 150 && y <= 400;
         //return x >= 656 && x <= 1178 && y >= 134 && y <= 656;
     }
 
@@ -273,8 +353,17 @@ public class Car implements Runnable{
 
                 // Se o carro estiver pausado, aguarda
                 while (isPaused) {
-                    Thread.sleep(50); // Atraso enquanto está pausado
+                    Thread.sleep(10); // Atraso enquanto está pausado
                 }
+
+                if(isScalable()){
+                    System.out.println(nome + " é escalonável.");
+                }else{
+                    System.out.println(nome + " não é escalonável. Ajustando atraso.");
+                }
+
+                // Ajusta a prioridade da thread
+                adjustThreadPriority(Thread.currentThread());
 
                 // Verifica se o carro está entrando na região crítica
                 if (isInCriticalRegion()) {
@@ -286,11 +375,17 @@ public class Car implements Runnable{
                     while (isInCriticalRegion()) {
 
                         while (isPaused) {
-                            Thread.sleep(50); // Atraso enquanto está pausado
+                            Thread.sleep(10); // Atraso enquanto está pausado
                         }
 
                         move(); // Move o carro
-                        Thread.sleep(20); // Atraso para simular a movimentação
+
+                        // Verifica a escalonabilidade e aplica o sleep apropriado
+                        if (!isScalable()) {
+                            Thread.sleep(getAdjustedDelay()); // Atraso menor para carros não escalonáveis
+                        } else {
+                            Thread.sleep(10); // Atraso padrão
+                        }
                     }
 
                     // Libera o semáforo ao sair da região crítica
@@ -301,13 +396,19 @@ public class Car implements Runnable{
                     move();
                 }
 
-                Thread.sleep(20); // Pausa breve entre os movimentos
+                // Verifica a escalonabilidade e aplica o sleep apropriado
+                if (!isScalable()) {
+                    Thread.sleep(getAdjustedDelay()); // Atraso maior para carros não escalonáveis
+                } else {
+                    Thread.sleep(10); // Atraso padrão
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 isRunning = false;
             }
         }
     }
+
 
     // Método para parar a execução do carro
     public void stopRunning() {
