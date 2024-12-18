@@ -109,9 +109,9 @@ public class MainActivity extends AppCompatActivity {
 
                                 Log.d("PrioridadeCarro", "Carro " + car.getNome() + " - Prioridade: " + carThread.getPriority());
 
-                                executor.submit(car);
+                                //executor.submit(car);
 
-                                //carThread.start(); // Inicia a thread
+                                carThread.start(); // Inicia a thread
                             }
 
                             startMovement(); // Iniciar a movimentação

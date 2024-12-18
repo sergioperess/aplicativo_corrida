@@ -54,7 +54,7 @@ public class Car implements Runnable{
             sensor.put(i, d);
         }
 
-        this.deadline = 6000; // Define o tempo limite
+        this.deadline = 60000; // Define o tempo limite
         this.startTime = System.currentTimeMillis(); // Marca o tempo inicial
         this.dist_porcent = 0;
     }
